@@ -113,3 +113,45 @@ class Encoder(nn.Module):
         cell = torch.cat((cell[:, 0, :, :], cell[:, 1, :, :]), dim=2)
 
         return output, (hidden, cell)
+
+class Attention(nn.Module):
+    def __init__(self, encoder_hidden_dim, decoder_hidden_dim):
+        super().__init__()
+        self.encoder_hidden_dim = encoder_hidden_dim
+        self.decoder_hidden_dim - decoder_hidden_dim
+
+        self.W_encoder = nn.Linear(encoder_hidden_dim, decoder_hidden_dim, bias = False)
+        self.W_decoder = nn.Linear(decoder_hidden_dim, decoder_hidden_dim, bias = False)
+        self.v = nn.Linear(decocder_hidden_dim, 1, bias = False)
+
+        self.softmax = nn.Softmax(dim = 1)
+
+    def forward(self, encoder_outputs, decoder_hidden, encoder_lengths):
+        batch_size = encoder_outputs.size(0)
+        sequence_length = encoder_outputs.size(1)
+        
+        # For every time step, repeat decoder hidden layer
+        # print(decoder_hidden.shape)
+        decoder_hidden = decoder_hidden.unsqueeze(1).repeat(1, sequence_length, 1)
+        # print(decoder_hidden.shape)
+
+        # Additive attention - v*tanh(Wencoder + Wdecoder)
+        encoder_projection = self.W_encoder(encoder_outputs)
+        decoder_projection = self.W_decoder(decode_hidden)
+        # shape - [batch_size, N] 
+        energies = self.v(torch.tanh(encoder_projection + decoder_projection)).squeeze(2)
+        # print(energies.shape)
+
+        # Masking <PAD> tokens prior to softmax - 0 attention weight
+        mask = torch.arange(sequence_length).unsqueeze(0).repeat(batch_size, 1).to(encoder_outputs.device)
+        mask = mask < encoder_lengths.unsqueeze(1)
+        energies = energies.masked_fill(~mask, -float('inf')) 
+        attention_weights = self.softmax(energies)
+
+        # print(encoder_outputs.shape)
+        # print(attention_weights.shape)
+        
+        # weighted sum
+        context_vector = torch.bmm(attention_weights.unsqueeze(1), encoder_outputs).squeeze(1)
+        return context_vector, attention_weights
+        
