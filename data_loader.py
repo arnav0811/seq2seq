@@ -17,14 +17,19 @@ class ConalaDataset(Dataset):
         with open(data_path, 'r') as f:
             data = json.load(f)
         
-        # Filter out extremely long snippets
+        # Filter out extremely long snippets and None values
         filtered = []
         for i in data:
             intent = i['rewritten_intent']
             snippet = i['snippet']
+            
+            # Skip entries with None values
+            if intent is None or snippet is None:
+                continue
+                
             if len(intent.split()) <= self.max_length and len(snippet.split()) <= self.max_length:
                 filtered.append({'intent': intent, 'snippet': snippet})
-        print(f"Loaded {len(filtered)}")
+        print(f"Loaded {len(filtered)} examples (filtered from {len(data)} total)")
         return filtered
 
     def build_vocab(self):
@@ -79,10 +84,10 @@ def collate(batch):
     intent_lengths = [len(i) for i in intents]
     snippet_lengths = [len(i) for i in snippets]
 
-    max_intent_lenght = max(intent_lengths)
+    max_intent_length = max(intent_lengths)
     max_snippet_length = max(snippet_lengths)
 
-    intent_padded = torch.zeros(len(batch), max_intent_lenght, dtype=torch.long)
+    intent_padded = torch.zeros(len(batch), max_intent_length, dtype=torch.long)
     snippet_padded = torch.zeros(len(batch), max_snippet_length, dtype=torch.long)
 
     for i, (intent, snippet) in enumerate(zip(intents, snippets)):

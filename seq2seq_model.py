@@ -33,7 +33,7 @@ class Attention(nn.Module):
     def __init__(self, encoder_hidden_dim, decoder_hidden_dim):
         super().__init__()
         self.encoder_hidden_dim = encoder_hidden_dim
-        self.decoder_hidden_dim - decoder_hidden_dim
+        self.decoder_hidden_dim = decoder_hidden_dim
 
         self.W_encoder = nn.Linear(encoder_hidden_dim, decoder_hidden_dim, bias = False)
         self.W_decoder = nn.Linear(decoder_hidden_dim, decoder_hidden_dim, bias = False)
@@ -75,7 +75,7 @@ class Decoder(nn.Module):
         super().__init__()
         self.vocab_size = vocab_size
         self.use_attention = use_attention
-        self.embedding_dim = nn.Embedding(vocab_size, embedding_dim, padding_idx = 0)
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx = 0)
 
         # IN Bahdanau attention input to LSTM is context vector + embedding
         lstm_input_dim = embedding_dim
@@ -96,7 +96,7 @@ class Decoder(nn.Module):
             lstm_input = torch.cat([embedded, context_vector.unsqueeze(1)], dim = 2)
         else:
             lstm_input = embedded
-            attention_weight = None
+            attention_weights = None
         output, hidden = self.lstm(lstm_input, hidden)
         output = self.output_projection(output)
 
@@ -109,7 +109,11 @@ class Seq2SeqModel(nn.Module):
         # Bi directional LSTM in Bahdanau Attention paper
         encoder_hidden_dim = hidden_dim * 2
         self.encoder = Encoder(vocab_size, embedding_dim, hidden_dim, num_layers)
-        self.decoder = Decoder(vocab_size, embedding_dim, hidden_dim, num_layers, use_attention)
+        self.decoder = Decoder(vocab_size, embedding_dim, hidden_dim, encoder_hidden_dim, num_layers, use_attention)
+        
+        # Linear projection to initialize decoder from encoder from Bahdanau paper
+        self.init_hidden = nn.Linear(encoder_hidden_dim, hidden_dim)
+        self.init_cell = nn.Linear(encoder_hidden_dim, hidden_dim)
 
     def forward(self, source, target, source_lengths, target_lengths):
         batch_size, target_len = target.size()
@@ -117,8 +121,21 @@ class Seq2SeqModel(nn.Module):
 
         encoder_outputs, encoder_hidden = self.encoder(source, source_lengths)
         
-        # First deocder hidden state is encoder hidden state
-        decoder_hidden = encoder_hidden
+        # Initialize decoder hidden state from encoder (Bahdanau approach)
+        # Take the final hidden state from the last layer and project it
+        hidden, cell = encoder_hidden
+        final_hidden = hidden[-1]  
+        final_cell = cell[-1]      
+        
+        # Project to decoder dimensions and repeat for all layers
+        init_hidden = self.init_hidden(final_hidden)  
+        init_cell = self.init_cell(final_cell)        
+        
+        # Repeat for all decoder layers
+        decoder_hidden = (
+            init_hidden.unsqueeze(0).repeat(self.encoder.num_layers, 1, 1),  # (num_layers, batch, hidden_dim)
+            init_cell.unsqueeze(0).repeat(self.encoder.num_layers, 1, 1)     # (num_layers, batch, hidden_dim)
+        )
 
         outputs = torch.zeros(batch_size, target_len, vocab_size).to(source.device)
         # Accounting for <SOS> tag
