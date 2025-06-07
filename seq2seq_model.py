@@ -15,7 +15,6 @@ class Encoder(nn.Module):
         embedded = self.embedding(x)
 
         # Pack padded sequence for LSTM - Bahdanau
-        # pack_padded_sequence requires lengths to be on CPU
         packed = nn.utils.rnn.pack_padded_sequence(embedded, lengths.cpu(), batch_first=True, enforce_sorted=False)
         packed_output, (hidden, cell) = self.lstm(packed)
         output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True)
