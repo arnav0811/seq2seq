@@ -10,5 +10,9 @@ The papers I drew inspiration from perform the WMT’14 English to French transl
 Used SGD Optimizer as pointed out in the [Sequence to Sequence](https://arxiv.org/pdf/1409.3215) paper. Closely followed the training loop displayed in said paper with an initial learning rate of 0.7 and the learnign rate was halved at every half epoch after the 5th epoch. First trained the mdoel for 8 epochs, and then for 15 epochs both wth and without the Bahdanau Attention mechanism. Used Cross-Entropy loss and achieved small differences between the two training mechanisms (with and without Bahdanau Attention). 
 
 ## Setup
-''' pip install -r requirements.txt '''
-''' python train.py --data_path data/conala-train.json --use_attention '''
+''' 
+pip install -r requirements.txt 
+'''
+''' 
+python train.py --data_path data/conala-train.json --use_attention 
+'''
