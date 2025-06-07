@@ -15,6 +15,7 @@ class Encoder(nn.Module):
         embedded = self.embedding(x)
 
         # Pack padded sequence for LSTM - Bahdanau
+        # pack_padded_sequence requires lengths to be on CPU
         packed = nn.utils.rnn.pack_padded_sequence(embedded, lengths.cpu(), batch_first=True, enforce_sorted=False)
         packed_output, (hidden, cell) = self.lstm(packed)
         output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True)
@@ -59,6 +60,8 @@ class Attention(nn.Module):
 
         # Masking <PAD> tokens prior to softmax - 0 attention weight
         mask = torch.arange(sequence_length).unsqueeze(0).repeat(batch_size, 1).to(encoder_outputs.device)
+        # Ensure encoder_lengths is on the same device for comparison
+        encoder_lengths = encoder_lengths.to(encoder_outputs.device)
         mask = mask < encoder_lengths.unsqueeze(1)
         energies = energies.masked_fill(~mask, -float('inf')) 
         attention_weights = self.softmax(energies)
@@ -133,8 +136,8 @@ class Seq2SeqModel(nn.Module):
         
         # Repeat for all decoder layers
         decoder_hidden = (
-            init_hidden.unsqueeze(0).repeat(self.encoder.num_layers, 1, 1),  # (num_layers, batch, hidden_dim)
-            init_cell.unsqueeze(0).repeat(self.encoder.num_layers, 1, 1)     # (num_layers, batch, hidden_dim)
+            init_hidden.unsqueeze(0).repeat(self.encoder.num_layers, 1, 1),  
+            init_cell.unsqueeze(0).repeat(self.encoder.num_layers, 1, 1)     
         )
 
         outputs = torch.zeros(batch_size, target_len, vocab_size).to(source.device)
