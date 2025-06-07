@@ -6,4 +6,3 @@ __pycache__/
 
 # Model checkpoints and outputs
 saved_models/
-*.png
