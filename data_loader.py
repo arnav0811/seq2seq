@@ -6,19 +6,24 @@ import json
 from collections import Counter
 
 class ConalaDataset(Dataset):
-    def __init__(self, data_path, vocab_path=None, max_length=100):
-        self.data = self.load_data(data_path, max_length)
+    def __init__(self, data_path, vocab_path=None, max_length=50):
+        self.max_length = max_length
+        self.data = self.load_data(data_path)
         self.vocab = self.build_vocab()
+        self.vocab_size = len(self.vocab)
+        self.index_to_token = {v: k for k, v in self.vocab.items()}
     
-    def load_data(self, data_path, max_length):
+    def load_data(self, data_path):
         with open(data_path, 'r') as f:
             data = json.load(f)
         
         # Filter out extremely long snippets
         filtered = []
         for i in data:
-            if len(i['intent'].split()) <= max_length and len(i['snippet'].split()) <= max_length:
-                filtered.append(i)
+            intent = i['rewritten_intent']
+            snippet = i['snippet']
+            if len(intent.split()) <= self.max_length and len(snippet.split()) <= self.max_length:
+                filtered.append({'intent': intent, 'snippet': snippet})
         print(f"Loaded {len(filtered)}")
         return filtered
 
@@ -48,6 +53,10 @@ class ConalaDataset(Dataset):
         # string to list of token indices
         return [self.vocab.get(token, self.vocab['<UNK>']) for token in tokens]
     
+    def seq_to_text(self, indices):
+        tokens = [self.index_to_token[i] for i in indices]
+        return ' '.join(tokens)
+    
     def __len__(self):
         return len(self.data)
     
@@ -59,6 +68,8 @@ class ConalaDataset(Dataset):
         return {
             'intent': torch.tensor(intent_seq),
             'snippet': torch.tensor(snippet_seq),
+            'intent_text': i['intent'],
+            'snippet_text': i['snippet']
         }
 
 def collate(batch):
@@ -83,4 +94,6 @@ def collate(batch):
         'snippets': snippet_padded,
         'intent_lengths': torch.tensor(intent_lengths),
         'snippet_lengths': torch.tensor(snippet_lengths),
+        'intent_texts': [i['intent_text'] for i in batch],
+        'snippet_texts': [i['snippet_text'] for i in batch]
     }

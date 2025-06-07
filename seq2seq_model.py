@@ -37,7 +37,7 @@ class Attention(nn.Module):
 
         self.W_encoder = nn.Linear(encoder_hidden_dim, decoder_hidden_dim, bias = False)
         self.W_decoder = nn.Linear(decoder_hidden_dim, decoder_hidden_dim, bias = False)
-        self.v = nn.Linear(decocder_hidden_dim, 1, bias = False)
+        self.v = nn.Linear(decoder_hidden_dim, 1, bias = False)
 
         self.softmax = nn.Softmax(dim = 1)
 
@@ -52,7 +52,7 @@ class Attention(nn.Module):
 
         # Additive attention - v*tanh(Wencoder + Wdecoder)
         encoder_projection = self.W_encoder(encoder_outputs)
-        decoder_projection = self.W_decoder(decode_hidden)
+        decoder_projection = self.W_decoder(decoder_hidden)
         # shape - [batch_size, N] 
         energies = self.v(torch.tanh(encoder_projection + decoder_projection)).squeeze(2)
         # print(energies.shape)
@@ -81,13 +81,13 @@ class Decoder(nn.Module):
         lstm_input_dim = embedding_dim
         # Attention flag
         if use_attention:
-            lstm_input_dim += encoder_hidden_dimension
+            lstm_input_dim += encoder_hidden_dim
             self.attention = Attention(encoder_hidden_dim, hidden_dim)
         # print(lstm_input_dim.shape)
-        self.lstm = nn.LSTM(lstm_input_dim, hidden_dim, num_layers, batch_first = true)
+        self.lstm = nn.LSTM(lstm_input_dim, hidden_dim, num_layers, batch_first = True)
         self.output_projection = nn.Linear(hidden_dim, vocab_size)
 
-    def forward(self, input_token, hidden, encoder_outputs = None, encoder_lengths = none):
+    def forward(self, input_token, hidden, encoder_outputs = None, encoder_lengths = None):
         embedded = self.embedding(input_token)
 
         if self.use_attention and encoder_outputs is not None:
@@ -103,7 +103,7 @@ class Decoder(nn.Module):
         return output, hidden, attention_weights
 
 class Seq2SeqModel(nn.Module):
-    def __init__(self, vocab_size, embedding_dim = 256, hidden_dimension = 512, num_layers = 2, use_attention = False):
+    def __init__(self, vocab_size, embedding_dim = 256, hidden_dim = 512, num_layers = 2, use_attention = False):
         super().__init__()
         self.use_attention = use_attention
         # Bi directional LSTM in Bahdanau Attention paper
